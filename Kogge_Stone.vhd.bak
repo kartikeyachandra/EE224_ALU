@@ -1,0 +1,133 @@
+library IEEE;
+use ieee.std_logic_1164.all;
+entity Adder is
+port (
+			A    : in  std_logic_vector(15 downto 0);     --A is a 16 bit input
+			B    : in  std_logic_vector(15 downto 0);     --B is a 16 bit input
+			C_in : in  std_logic;
+			Sum  : out std_logic_vector(15 downto 0);     --Sum 
+			C_out: out std_logic
+		);
+end Adder;
+
+architecture arch of Adder is
+
+	--internal p & g values
+	signal p_in: std_logic_vector (15 downto 0);
+	signal g_in: std_logic_vector (15 downto 0);
+   
+	--output values of p & g at each logical level
+	
+	--level 1
+	signal p1: std_logic_vector (15 downto 0);
+	signal g1: std_logic_vector (15 downto 0);
+		
+	--level 2
+	signal p2: std_logic_vector (15 downto 0);
+	signal g2: std_logic_vector (15 downto 0);
+		
+	--level 3
+	signal p3: std_logic_vector (15 downto 0);
+	signal g3: std_logic_vector (15 downto 0);
+		
+	--level 4
+	signal p4: std_logic_vector (15 downto 0);
+	signal g4: std_logic_vector (15 downto 0);
+	
+	-- internal carry
+	signal C_int: std_logic_vector (15 downto 0);
+	component gen is
+port (
+			A : in std_logic;
+			B : in std_logic;
+			g : out std_logic;
+			p : out std_logic
+		);
+end component ;
+
+---------------------------------------------- generating carry --------------------------------
+
+component car is
+port(
+			g_1 : in std_logic;
+			p_1 : in std_logic;
+			g_2 : in std_logic;
+			p_2 : in std_logic;
+			g0  : out std_logic;
+			p0  : out std_logic
+	 );
+end component ;
+begin
+ 
+		--generating stage-0 p,g signals
+			stage_0:
+					 for i in 0 to 15 generate 
+							pm: gen port map (A => A(i) , B => B(i) , g => g_in(i) , p => p_in(i) );
+					 end generate;
+					 
+		--stage-1 carry operations
+		
+		  g1(0) <= g_in(0);
+		  p1(0) <= p_in(0);
+		  
+		--generating stage-1 p,g signals 
+		
+		  stage_1:
+					 for i in 0 to 14 generate 
+							X: car port map ( g_in(i) ,  p_in(i) , g_in(i+1) , p_in(i+1) ,g1(i+1) , p1(i+1) );
+							--pm1: component carry port map (g_1 => g_in(i) , p_1 => p_in(i) , g_2 => g_in(i+1) , p_2 => p_in(i+1) , g0 => g1(i+1) , p0 => p1(i+1) );
+	    			 end generate;
+					 
+		--stage-2 carry operations
+		
+		buffer_adder1:
+						for i in 0 to 1 generate
+							 g2(i) <= g1(i); 
+							 p2(i) <= p1(i);
+						end generate;
+		stage_2:
+					 for i in 0 to 13 generate
+							pm2: car port map (g_1 => g1(i) , p_1 => p1(i) , g_2 => g1(i+2) , p_2 => p1(i+2) , g0 => g2(i+2) , p0 => p2(i+2));
+					 end generate;
+					 
+		--stage-3 carry operations
+		
+		buffer_adder2:
+						for i in 0 to 3 generate
+							 g3(i) <= g2(i);
+							 p3(i) <= p2(i);
+						end generate;
+		stage_3:
+					 for i in 0 to 11 generate
+							pm3: car port map (g_1 => g2(i) , p_1 => p2(i) , g_2 => g2(i+4) , p_2 => p2(i+4) , g0 => g3(i+4) , p0 => p3(i+4));
+					 end generate;
+					 
+		--stage-4 carry operations
+		
+		buffer_adder3:
+						for i in 0 to 7 generate
+							 g4(i) <= g3(i);
+							 p4(i) <= p3(i);
+						end generate;
+		stage_4:
+					 for i in 0 to 7 generate
+							pm4: car port map (g_1 => g3(i) , p_1 => p3(i) , g_2 => g3(i+8) , p_2 => p3(i+8) , g0 => g4(i+8) , p0 => p4(i+8));
+					 end generate;
+		
+		--generation of carry 
+		
+		C_gen:
+					 for i in 0 to 15 generate
+							C_int(i) <= g4(i) or (C_in and p4(i));
+					 end generate;
+		
+		C_out <= C_int(15);
+		
+		Sum(0) <= C_in xor p_in(0);
+		
+		adding:
+				 for i in 1 to 15 generate
+					  Sum(i) <= C_int(i-1) xor p_in(i);
+				 end generate;
+		
+end arch;
